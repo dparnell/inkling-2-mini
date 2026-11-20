@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inkling Dashboard</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e4e3de; --grid: #efeee9;
+  --s1: #3b5bdb; --s2: #0c8599; --s3: #e67700; --s4: #2f9e44; --s5: #ae3ec9; --s6: #c92a2a; --ok: #2f9e44; --bad: #c92a2a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413; --panel: #1c1c1a; --ink: #ecebe6; --muted: #9a9993; --line: #2e2e2b; --grid: #262624;
+    --s1: #7b93f0; --s2: #3bc9db; --s3: #ffa94d; --s4: #69db7c; --s5: #da77f2; --s6: #ff8787; --ok: #69db7c; --bad: #ff8787;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; align-items: baseline; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+header h1 { font-size: 17px; margin: 0; }
+header .meta { color: var(--muted); font-size: 13px; }
+header a { margin-left: auto; color: var(--s1); text-decoration: none; }
+main { padding: 16px 20px 40px; max-width: 1400px; margin: 0 auto; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.kpi .l { font-size: 12px; color: var(--muted); }
+.kpi .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 8px; }
+.card .h { display: flex; justify-content: space-between; align-items: baseline; }
+.card .t { font-size: 13px; color: var(--muted); }
+.card .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.card canvas { width: 100%; height: 90px; display: block; margin-top: 6px; }
+.card .f { font-size: 12px; color: var(--muted); }
+h2 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; font-size: 13px; }
+th { color: var(--muted); font-weight: 500; }
+td.n, th.n { text-align: right; }
+.st-generating, .st-prefill, .st-queued { color: var(--s1); font-weight: 600; }
+.st-failed, .st-rejected { color: var(--bad); }
+.st-done { color: var(--ok); }
+#logs { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: 12px/1.5 ui-monospace, Consolas, monospace; max-height: 280px; overflow: auto; white-space: pre-wrap; color: var(--muted); }
+.off { color: var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Inkling performance</h1>
+  <span class="meta" id="meta">connecting…</span>
+  <a href="/">← Chat</a>
+</header>
+<main>
+  <div class="kpis" id="kpis"></div>
+  <div class="charts" id="charts"></div>
+  <h2>Requests</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Time</th><th>Endpoint</th><th>Input</th><th>State</th><th class="n">Prompt</th><th class="n">Cached</th><th class="n">Generated</th><th class="n">Prefill</th><th class="n">TTFT</th><th class="n">Decode</th><th class="n">Total</th></tr></thead>
+    <tbody id="reqs"></tbody>
+  </table></div>
+  <h2>Log</h2>
+  <div id="logs"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmtB = (b) => b == null ? "–" : b >= 1e9 ? (b / 1e9).toFixed(2) + " GB" : b >= 1e6 ? (b / 1e6).toFixed(0) + " MB" : (b / 1e3).toFixed(0) + " kB";
+const fmtN = (n) => n == null ? "–" : n.toLocaleString();
+const fmtMs = (m) => m == null ? "–" : m >= 1000 ? (m / 1000).toFixed(2) + " s" : m.toFixed(0) + " ms";
+const charts = [
+  { id: "gen", t: "Generation", unit: "tok/s", c: "--s1", f: s => s.gen_tps },
+  { id: "prompt", t: "Prompt processing", unit: "tok/s", c: "--s2", f: s => s.prompt_tps },
+  { id: "ttft", t: "Time to first token", unit: "ms", c: "--s3", f: s => s.ttft_ms, sticky: true },
+  { id: "gpu", t: "GPU utilisation", unit: "%", c: "--s4", f: s => s.gpu_util ?? s.busy * 100, max: 100 },
+  { id: "vram", t: "VRAM used", unit: "GB", c: "--s5", f: s => s.vram_used != null ? s.vram_used / 1e9 : s.gpu_alloc / 1e9, maxf: s => s.vram_total != null ? s.vram_total / 1e9 : null },
+  { id: "hit", t: "MoE expert cache hit rate", unit: "%", c: "--s4", f: s => s.expert_hit != null ? s.expert_hit * 100 : null, max: 100, sticky: true },
+  { id: "up", t: "Expert streaming (host → GPU)", unit: "MB/s", c: "--s3", f: s => s.upload_bps / 1e6 },
+  { id: "rss", t: "Process memory (RSS)", unit: "GB", c: "--s6", f: s => s.rss / 1e9 },
+];
+$("charts").innerHTML = charts.map(c => `<div class="card"><div class="h"><span class="t">${c.t}</span><span class="v" id="v-${c.id}">–</span></div><canvas id="c-${c.id}"></canvas><div class="f" id="f-${c.id}"></div></div>`).join("");
+
+function draw(c, samples) {
+  const cv = $("c-" + c.id); const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight; cv.width = w * dpr; cv.height = h * dpr;
+  const g = cv.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  const vals = samples.map(c.f);
+  let last = null; const filled = vals.map(v => { if (v != null) last = v; return c.sticky ? last : v; });
+  const present = filled.filter(v => v != null);
+  const lastSample = samples[samples.length - 1];
+  const capMax = c.maxf && lastSample ? c.maxf(lastSample) : null;
+  const max = c.max ?? capMax ?? Math.max(1e-9, ...present) * 1.15;
+  g.strokeStyle = css("--grid"); g.lineWidth = 1;
+  for (let i = 1; i < 4; i++) { const y = Math.round(h * i / 4) + 0.5; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+  const n = 300; const step = w / (n - 1); const off = n - filled.length;
+  const col = css(c.c);
+  g.beginPath(); let started = false;
+  filled.forEach((v, i) => { if (v == null) { started = false; return; } const x = (off + i) * step, y = h - 2 - (v / max) * (h - 6); if (!started) { g.moveTo(x, y); started = true; } else g.lineTo(x, y); });
+  g.strokeStyle = col; g.lineWidth = 1.6; g.stroke();
+  g.lineTo((off + filled.length - 1) * step, h); g.lineTo(off * step, h); g.closePath();
+  g.globalAlpha = 0.12; g.fillStyle = col; g.fill(); g.globalAlpha = 1;
+  const cur = filled.length ? filled[filled.length - 1] : null;
+  $("v-" + c.id).textContent = cur == null ? "–" : `${cur >= 100 ? cur.toFixed(0) : cur.toFixed(1)} ${c.unit}`;
+  const busy = present.filter(v => v > 0);
+  $("f-" + c.id).textContent = present.length ? `peak ${Math.max(...present).toFixed(1)}${busy.length ? ` · avg while active ${(busy.reduce((a, b) => a + b, 0) / busy.length).toFixed(1)}` : ""}${capMax ? ` · of ${capMax.toFixed(1)}` : ""}` : "no data yet";
+}
+
+function kpis(j) {
+  const t = j.totals, e = j.experts;
+  const hit = e.hits + e.misses ? (100 * e.hits / (e.hits + e.misses)).toFixed(1) + "%" : "–";
+  const items = [
+    ["Requests", fmtN(t.requests)], ["Completed", fmtN(t.completed)], ["Failed / rejected", `${t.failed} / ${t.rejected}`],
+    ["Prompt tokens", fmtN(t.prompt_tokens)], ["Cached tokens", fmtN(t.cached_tokens)], ["Generated tokens", fmtN(t.generated)],
+    ["Expert hit rate (all time)", hit], ["Experts streamed", fmtB(e.uploaded_bytes)],
+  ];
+  $("kpis").innerHTML = items.map(([l, v]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`).join("");
+}
+
+function reqs(j) {
+  $("reqs").innerHTML = j.requests.map(r => {
+    const st = r.state === "done" ? (r.detail || "done") : r.state === "prefill" && r.progress ? `prefill ${Math.round(100 * r.progress[0] / Math.max(1, r.progress[1]))}%` : r.state;
+    const tip = (r.state === "failed" || r.state === "rejected") ? ` title="${r.detail.replace(/"/g, "&quot;")}"` : "";
+    const at = new Date(Date.now() - (j.uptime_s - r.at) * 1000).toLocaleTimeString();
+    return `<tr><td>${r.id}</td><td>${at}</td><td>${r.endpoint}</td><td>${r.input || ""}${r.stream ? " · stream" : ""}</td><td class="st-${r.state}"${tip}>${st}</td>
+      <td class="n">${fmtN(r.prompt)}</td><td class="n">${fmtN(r.cached)}</td><td class="n">${fmtN(r.generated)}</td><td class="n">${fmtMs(r.prefill_ms)}</td>
+      <td class="n">${fmtMs(r.ttft_ms)}</td><td class="n">${r.decode_tps ? r.decode_tps.toFixed(1) + " tok/s" : "–"}</td><td class="n">${fmtMs(r.total_ms)}</td></tr>`;
+  }).join("") || `<tr><td colspan="12" style="color:var(--muted)">No requests yet.</td></tr>`;
+}
+
+let failures = 0;
+async function tick() {
+  try {
+    const j = await (await fetch("/api/stats")).json();
+    failures = 0;
+    const i = j.info, up = Math.floor(j.uptime_s);
+    $("meta").innerHTML = `${i.model} · ${i.gpu}${i.gpu_source ? ` (${i.gpu_source})` : ""} · ${i.status} · up ${Math.floor(up / 3600)}h ${Math.floor(up / 60) % 60}m ${up % 60}s`;
+    kpis(j);
+    for (const c of charts) draw(c, j.samples);
+    reqs(j);
+    const lg = $("logs"); const atBottom = lg.scrollHeight - lg.scrollTop - lg.clientHeight < 30;
+    lg.textContent = j.logs.join("\n"); if (atBottom) lg.scrollTop = lg.scrollHeight;
+  } catch {
+    if (++failures > 2) $("meta").innerHTML = `<span class="off">server unreachable</span>`;
+  }
+}
+tick(); setInterval(tick, 1000);
+window.addEventListener("resize", tick);
+</script>
+</body>
+</html>

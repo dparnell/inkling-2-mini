@@ -1,0 +1,39 @@
+[package]
+name = "inkling"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+async-stream = "0.3.6"
+axum = "0.8"
+base64 = "0.23.1"
+bytemuck = { version = "1.25.2", features = ["derive"] }
+clap = { version = "4.6.9", features = ["derive", "env"] }
+crossterm = "0.28"
+futures = "0.3.34"
+half = "2.7.1"
+hex = "0.4.3"
+image = "0.25.10"
+memmap2 = "0.9.12"
+minijinja = { version = "3", features = ["serde", "json", "builtins", "preserve_order", "loop_controls", "macros", "multi_template"] }
+minijinja-contrib = { version = "3.1.0", features = ["pycompat"] }
+nvml-wrapper = "0.13.0"
+parking_lot = "0.13.0"
+pollster = "1.0.3"
+rand = "0.9"
+ratatui = "0.29"
+rayon = "1.12.0"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+sha2 = "0.10"
+sysinfo = "0.40.4"
+tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
+tokio = { version = "1.54.1", features = ["full"] }
+tokio-stream = "0.1.19"
+tower-http = { version = "0.6", features = ["cors", "limit"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+uuid = { version = "1.29.3", features = ["v4"] }
+wgpu = "30"

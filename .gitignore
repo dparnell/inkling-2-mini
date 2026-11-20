@@ -1,0 +1,5 @@
+models/
+target/
+tests/out/
+# large copy of a file `inkling download` fetches
+reference/hf_Inkling-2-Mini/tokenizer.json

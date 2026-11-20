@@ -1,0 +1,1 @@
+{"messages":[{"role":"user","content":"weather?"},{"role":"assistant","content":"","tool_calls":[{"id":"c1","type":"function","function":{"name":"get_weather","arguments":{"city":"Paris","units":"c"}}}]},{"role":"tool","tool_call_id":"c1","content":"{\"t\": 20}"}]}

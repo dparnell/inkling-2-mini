@@ -1,0 +1,3 @@
+{"messages":[{"role":"system","content":"You are helpful."},{"role":"user","content":"Hi there! What's 2+2?"},{"role":"assistant","content":"4","reasoning_content":"simple"},{"role":"user","content":[{"type":"text","text":"Look"},{"type":"image_url","image_url":{"url":"x"}}]}],
+ "tools":[{"type":"function","function":{"name":"get_weather","description":"Weather","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}],
+ "reasoning_effort":"low"}

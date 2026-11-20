@@ -1,0 +1,390 @@
+# Reference sources for thinkingmachines/Inkling-2-Mini (inkling2_loop)
+
+All files copied verbatim (git checkout / raw download, no edits), fetched 2026-11-21. Each subdirectory mirrors the original repository paths.
+
+## transformers_pr51050/
+
+- Source: huggingface/transformers PR #51050 "Add Inkling2 Mini" (open; head branch huggingface/transformers:add-inkling2-mini)
+- URL: https://github.com/huggingface/transformers/pull/51050
+- Repo/commit: `huggingface/transformers` @ `6173a2f679ff4ed393afc499aefc569da7e68bc1`
+- Raw base: https://raw.githubusercontent.com/huggingface/transformers/6173a2f679ff4ed393afc499aefc569da7e68bc1/<path>
+- Notes: PRIMARY readable PyTorch reference. models/inkling2_loop/* (loop model), models/inkling2/* (base text decoder, vision tower, Inkling2ImageProcessor, processor), conversion_mapping.py (checkpoint key renames incl. Inkling2LoopDequantizeExperts = NVFP4/MXFP8 expert dequant, Inkling2LoopMergeMessageQueries), core_model_loading.py, integrations/quantizers fp4/fp8. Also includes models/inkling (v1) since inkling2 inherits from it via modular.
+- Files:
+  - `docs/source/en/model_doc/inkling.md`
+  - `docs/source/en/model_doc/inkling2.md`
+  - `docs/source/en/model_doc/inkling2_loop.md`
+  - `src/transformers/conversion_mapping.py`
+  - `src/transformers/core_model_loading.py`
+  - `src/transformers/integrations/fbgemm_fp8.py`
+  - `src/transformers/integrations/finegrained_fp8.py`
+  - `src/transformers/integrations/mxfp4.py`
+  - `src/transformers/integrations/nvfp4.py`
+  - `src/transformers/models/inkling/__init__.py`
+  - `src/transformers/models/inkling/configuration_inkling.py`
+  - `src/transformers/models/inkling/feature_extraction_inkling.py`
+  - `src/transformers/models/inkling/image_processing_inkling.py`
+  - `src/transformers/models/inkling/modeling_inkling.py`
+  - `src/transformers/models/inkling/modular_inkling.py`
+  - `src/transformers/models/inkling/processing_inkling.py`
+  - `src/transformers/models/inkling2/__init__.py`
+  - `src/transformers/models/inkling2/configuration_inkling2.py`
+  - `src/transformers/models/inkling2/image_processing_inkling2.py`
+  - `src/transformers/models/inkling2/modeling_inkling2.py`
+  - `src/transformers/models/inkling2/modular_inkling2.py`
+  - `src/transformers/models/inkling2/processing_inkling2.py`
+  - `src/transformers/models/inkling2_loop/__init__.py`
+  - `src/transformers/models/inkling2_loop/configuration_inkling2_loop.py`
+  - `src/transformers/models/inkling2_loop/modeling_inkling2_loop.py`
+  - `src/transformers/models/inkling2_loop/modular_inkling2_loop.py`
+  - `src/transformers/quantizers/quantizer_fbgemm_fp8.py`
+  - `src/transformers/quantizers/quantizer_finegrained_fp8.py`
+  - `src/transformers/quantizers/quantizer_mxfp4.py`
+  - `src/transformers/quantizers/quantizer_nvfp4.py`
+  - `tests/models/inkling/__init__.py`
+  - `tests/models/inkling/test_image_processing_inkling.py`
+  - `tests/models/inkling/test_modeling_inkling.py`
+  - `tests/models/inkling/test_processing_inkling.py`
+  - `tests/models/inkling2/__init__.py`
+  - `tests/models/inkling2/test_image_processing_inkling2.py`
+  - `tests/models/inkling2/test_modeling_inkling2.py`
+  - `tests/models/inkling2/test_processing_inkling2.py`
+  - `tests/models/inkling2_loop/__init__.py`
+  - `tests/models/inkling2_loop/test_modeling_inkling2_loop.py`
+
+## vllm_pr69028/
+
+- Source: vllm-project/vllm PR #69028 "[Model] Add Inkling 2 Mini" (open; head WoosukKwon/vllm:inkling2-mini). Model lives in vllm/models/inkling2/ (not vllm/model_executor/models)
+- URL: https://github.com/vllm-project/vllm/pull/69028
+- Repo/commit: `WoosukKwon/vllm` @ `b426b46e63408c41b0aec069fdaf24dd640abe58`
+- Raw base: https://raw.githubusercontent.com/WoosukKwon/vllm/b426b46e63408c41b0aec069fdaf24dd640abe58/<path>
+- Notes: Optimized serving impl: nvidia/loop.py + ops/loop.py (loop controllers), model.py, attention.py, moe.py, sconv.py, vision.py, ops/nvfp4.py (fouroversix_mae activation quant), ops/mxfp8.py, ops/block_scales.py, ops/attn_res.py, processing.py, csrc/inkling2/*.cu, rust multimodal processor (rust/src/chat/src/multimodal/models/inkling2.rs) and chat renderer (rust/src/chat/src/renderer/inkling*), vllm/renderers/inkling*.py, docs/models/inkling2.md, tests/models/inkling2/*.
+- Files:
+  - `csrc/inkling2/allreduce_conv_mix.cu`
+  - `csrc/inkling2/conv_mix.cu`
+  - `csrc/inkling2/seq_parallel.cu`
+  - `docs/models/inkling2.md`
+  - `rust/src/chat/src/multimodal/models/inkling2.rs`
+  - `rust/src/chat/src/renderer/selection.rs`
+  - `rust/src/chat/src/renderer/inkling/inkling2.rs`
+  - `rust/src/chat/src/renderer/inkling/mod.rs`
+  - `rust/src/chat/src/renderer/inkling/tests.rs`
+  - `rust/src/chat/src/renderer/inkling/fixtures/text_audio_input.json`
+  - `rust/src/chat/src/renderer/inkling/fixtures/text_audio_output.txt`
+  - `rust/src/chat/src/renderer/inkling/fixtures/text_image_input.json`
+  - `rust/src/chat/src/renderer/inkling/fixtures/text_image_output.txt`
+  - `rust/src/chat/src/renderer/inkling/fixtures/tool_declare_input.json`
+  - `rust/src/chat/src/renderer/inkling/fixtures/tool_declare_output.txt`
+  - `rust/src/chat/src/renderer/inkling/fixtures/tool_media_input.json`
+  - `rust/src/chat/src/renderer/inkling/fixtures/tool_media_output.txt`
+  - `rust/src/chat/src/renderer/inkling/fixtures/tool_round_trip_input.json`
+  - `rust/src/chat/src/renderer/inkling/fixtures/tool_round_trip_output.txt`
+  - `rust/src/chat/src/renderer/inkling/inkling2/tests.rs`
+  - `tests/models/inkling2/test_allreduce.py`
+  - `tests/models/inkling2/test_attention.py`
+  - `tests/models/inkling2/test_core_ops.py`
+  - `tests/models/inkling2/test_dspark.py`
+  - `tests/models/inkling2/test_model.py`
+  - `tests/models/inkling2/test_moe.py`
+  - `tests/models/inkling2/test_processing.py`
+  - `tests/models/inkling2/test_vision.py`
+  - `vllm/models/inkling2/__init__.py`
+  - `vllm/models/inkling2/configs.py`
+  - `vllm/models/inkling2/processing.py`
+  - `vllm/models/inkling2/quant_config.py`
+  - `vllm/models/inkling2/speculator.py`
+  - `vllm/models/inkling2/speculator_config.py`
+  - `vllm/models/inkling2/nvidia/__init__.py`
+  - `vllm/models/inkling2/nvidia/attention.py`
+  - `vllm/models/inkling2/nvidia/dspark.py`
+  - `vllm/models/inkling2/nvidia/loop.py`
+  - `vllm/models/inkling2/nvidia/lora.py`
+  - `vllm/models/inkling2/nvidia/model.py`
+  - `vllm/models/inkling2/nvidia/moe.py`
+  - `vllm/models/inkling2/nvidia/sconv.py`
+  - `vllm/models/inkling2/nvidia/vision.py`
+  - `vllm/models/inkling2/nvidia/ops/__init__.py`
+  - `vllm/models/inkling2/nvidia/ops/activation.py`
+  - `vllm/models/inkling2/nvidia/ops/allreduce.py`
+  - `vllm/models/inkling2/nvidia/ops/attention.py`
+  - `vllm/models/inkling2/nvidia/ops/attention_sm90.py`
+  - `vllm/models/inkling2/nvidia/ops/attn_res.py`
+  - `vllm/models/inkling2/nvidia/ops/block_scales.py`
+  - `vllm/models/inkling2/nvidia/ops/conv_mix.py`
+  - `vllm/models/inkling2/nvidia/ops/dspark.py`
+  - `vllm/models/inkling2/nvidia/ops/gemv.py`
+  - `vllm/models/inkling2/nvidia/ops/grouped_gemm.py`
+  - `vllm/models/inkling2/nvidia/ops/linear.py`
+  - `vllm/models/inkling2/nvidia/ops/loop.py`
+  - `vllm/models/inkling2/nvidia/ops/moe.py`
+  - `vllm/models/inkling2/nvidia/ops/moe_humming.py`
+  - `vllm/models/inkling2/nvidia/ops/moe_sm120.py`
+  - `vllm/models/inkling2/nvidia/ops/moe_sm90.py`
+  - `vllm/models/inkling2/nvidia/ops/mxfp8.py`
+  - `vllm/models/inkling2/nvidia/ops/norm.py`
+  - `vllm/models/inkling2/nvidia/ops/nvfp4.py`
+  - `vllm/models/inkling2/nvidia/ops/sconv.py`
+  - `vllm/models/inkling2/nvidia/ops/seq_parallel.py`
+  - `vllm/models/inkling2/nvidia/ops/trtllm_bmm.cu`
+  - `vllm/models/inkling2/nvidia/ops/trtllm_bmm.py`
+  - `vllm/models/inkling2/nvidia/ops/vision.py`
+  - `vllm/renderers/inkling.py`
+  - `vllm/renderers/inkling_encoding.py`
+
+## sglang_pr51926/
+
+- Source: sgl-project/sglang PR #51926 "[Feat] inkling2: Support Inkling-2-Mini" (open; head zcnrex/sglang:chunan/inkling-2-mini-day0). Checkout = full PR head for all inkling* paths (superset of sglang main @ 2195fbd3c7c91aca466ffee58d194f0a15a34db8)
+- URL: https://github.com/sgl-project/sglang/pull/51926
+- Repo/commit: `zcnrex/sglang` @ `92e894ef904bfdb5c0cf2f2a541cbd4eec023573`
+- Raw base: https://raw.githubusercontent.com/zcnrex/sglang/92e894ef904bfdb5c0cf2f2a541cbd4eec023573/<path>
+- Notes: srt/models/inkling2.py, inkling2_mtp.py, inkling2_vision.py, inkling_common/inkling2_{attn,attn_res,loop,moe,norm,sconv}.py, configs/inkling2.py, kernels/ops/**/inkling2_* (incl. elementwise/inkling2_loop.py, gemm/inkling2_nvfp4.py, gemm/inkling2_mxfp8.py), jit csrc .cuh kernels, tests.
+- Files:
+  - `python/sglang/kernels/jit/csrc/inkling/causal_conv1d.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/draft_extend_sconv.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/fused_decode_update.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/gather_scatter_sconv.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/inkling_all_reduce.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/inkling_ar_barrier.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/inkling_ar_fused_decode.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/inkling_ar_scattered_sconv.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/inkling_attn_prologue_fused.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/inkling_rel_proj.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/inkling_row_scale.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling/update_sconv_cache.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling2/exchange.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling2/gate_sink.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling2/prologue.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling2/route.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling2/routed_quant.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling2/routed_quant_sm120.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling2/routed_rows.cuh`
+  - `python/sglang/kernels/jit/csrc/inkling2/sconv.cuh`
+  - `python/sglang/kernels/jit/csrc/moe/inkling_gate_topk_renorm.cuh`
+  - `python/sglang/kernels/ops/attention/inkling2_attn.py`
+  - `python/sglang/kernels/ops/attention/inkling2_attn_prologue.py`
+  - `python/sglang/kernels/ops/attention/inkling2_attn_res.py`
+  - `python/sglang/kernels/ops/attention/inkling2_decode_attention_sm90.py`
+  - `python/sglang/kernels/ops/attention/inkling2_vision_rope.py`
+  - `python/sglang/kernels/ops/attention/inkling_attn_prologue.py`
+  - `python/sglang/kernels/ops/communication/inkling2_comm.py`
+  - `python/sglang/kernels/ops/communication/inkling_all_reduce.py`
+  - `python/sglang/kernels/ops/communication/inkling_ar_fused.py`
+  - `python/sglang/kernels/ops/communication/inkling_ar_scattered_sconv.py`
+  - `python/sglang/kernels/ops/elementwise/inkling2_loop.py`
+  - `python/sglang/kernels/ops/elementwise/inkling2_residual_add.py`
+  - `python/sglang/kernels/ops/embeddings/inkling2_bilinear_interpolate.py`
+  - `python/sglang/kernels/ops/gemm/inkling2_cute_grouped_nvfp4.py`
+  - `python/sglang/kernels/ops/gemm/inkling2_grouped_sm120.py`
+  - `python/sglang/kernels/ops/gemm/inkling2_linear.py`
+  - `python/sglang/kernels/ops/gemm/inkling2_marlin_sm90.py`
+  - `python/sglang/kernels/ops/gemm/inkling2_mxfp8.py`
+  - `python/sglang/kernels/ops/gemm/inkling2_nvfp4.py`
+  - `python/sglang/kernels/ops/gemm/inkling_rel_proj.py`
+  - `python/sglang/kernels/ops/layernorm/inkling2_cute_utils.py`
+  - `python/sglang/kernels/ops/layernorm/inkling2_qk_l2_clip.py`
+  - `python/sglang/kernels/ops/layernorm/inkling2_rms_norm.py`
+  - `python/sglang/kernels/ops/mamba/inkling2_sconv.py`
+  - `python/sglang/kernels/ops/mamba/inkling_sconv.py`
+  - `python/sglang/kernels/ops/moe/inkling2_experts_sm120.py`
+  - `python/sglang/kernels/ops/moe/inkling2_experts_sm90.py`
+  - `python/sglang/kernels/ops/moe/inkling2_flashinfer_moe.py`
+  - `python/sglang/kernels/ops/moe/inkling2_mega_moe.py`
+  - `python/sglang/kernels/ops/moe/inkling2_moe.py`
+  - `python/sglang/kernels/ops/moe/inkling2_route.py`
+  - `python/sglang/kernels/ops/moe/inkling_gate_topk_renorm.py`
+  - `python/sglang/kernels/ops/moe/inkling_moe.py`
+  - `python/sglang/kernels/ops/quantization/inkling2_mxfp8_scales_sm120.py`
+  - `python/sglang/kernels/ops/speculative/inkling2_mtp.py`
+  - `python/sglang/srt/configs/inkling.py`
+  - `python/sglang/srt/configs/inkling2.py`
+  - `python/sglang/srt/models/inkling.py`
+  - `python/sglang/srt/models/inkling2.py`
+  - `python/sglang/srt/models/inkling2_mtp.py`
+  - `python/sglang/srt/models/inkling2_vision.py`
+  - `python/sglang/srt/models/inkling_common/__init__.py`
+  - `python/sglang/srt/models/inkling_common/attn.py`
+  - `python/sglang/srt/models/inkling_common/dense_mlp.py`
+  - `python/sglang/srt/models/inkling_common/hmlp.py`
+  - `python/sglang/srt/models/inkling_common/inkling2_attn.py`
+  - `python/sglang/srt/models/inkling_common/inkling2_attn_res.py`
+  - `python/sglang/srt/models/inkling_common/inkling2_loop.py`
+  - `python/sglang/srt/models/inkling_common/inkling2_moe.py`
+  - `python/sglang/srt/models/inkling_common/inkling2_norm.py`
+  - `python/sglang/srt/models/inkling_common/inkling2_sconv.py`
+  - `python/sglang/srt/models/inkling_common/lora.py`
+  - `python/sglang/srt/models/inkling_common/moe.py`
+  - `python/sglang/srt/models/inkling_common/norm.py`
+  - `python/sglang/srt/models/inkling_common/sconv.py`
+  - `python/sglang/srt/models/inkling_common/util.py`
+  - `python/sglang/srt/models/inkling_common/kernels/__init__.py`
+  - `python/sglang/srt/models/inkling_common/kernels/comm.py`
+  - `python/sglang/srt/models/inkling_common/kernels/sconv.py`
+  - `python/sglang/srt/models/inkling_common/quantization/__init__.py`
+  - `python/sglang/srt/models/inkling_common/quantization/config.py`
+  - `python/sglang/srt/models/inkling_common/quantization/quant.py`
+  - `python/sglang/srt/multimodal/processors/inkling.py`
+  - `python/sglang/srt/multimodal/processors/inkling2.py`
+  - `test/registered/disaggregation/test_disaggregation_inkling_mxfp8.py`
+  - `test/registered/e2e/models/test_inkling.py`
+  - `test/registered/e2e/models/test_inkling2_small_gb300.py`
+  - `test/registered/e2e/models/test_inkling_small_nvfp4.py`
+  - `test/registered/e2e/models/test_inkling_unified.py`
+  - `test/registered/e2e/models_large/test_inkling_nvfp4_nightly.py`
+  - `test/registered/kernels/ops/attention/test_inkling_attn_prologue_extend_pad.py`
+  - `test/registered/kernels/ops/attention/test_inkling_attn_prologue_tau.py`
+  - `test/registered/kernels/ops/attention/test_inkling_checkpoint_indices.py`
+  - `test/registered/kernels/ops/elementwise/test_inkling2_loop.py`
+  - `test/registered/kernels/ops/gemm/test_inkling_rel_proj.py`
+  - `test/registered/kernels/ops/lora/test_dense_lora_inkling_sink.py`
+  - `test/registered/kernels/ops/lora/test_dense_lora_inkling_sink_matrix.py`
+  - `test/registered/kernels/ops/moe/test_inkling_silu_and_mul.py`
+  - `test/registered/radix_cache/unified_radix_tree/linker/test_unified_cache_linker_kl_inkling.py`
+  - `test/registered/unit/configs/test_inkling_config.py`
+  - `test/registered/unit/entrypoints/openai/test_serving_inkling.py`
+  - `test/registered/unit/layers/test_llama_inkling_parallel_groups.py`
+  - `test/registered/unit/lora/test_inkling_linearized_lora_unit.py`
+  - `test/registered/unit/mem_cache/test_inkling_sconv_strided_conv_state.py`
+  - `test/registered/unit/models/test_inkling2.py`
+  - `test/registered/unit/models/test_inkling2_attention_kernels.py`
+  - `test/registered/unit/models/test_inkling2_moe_kernels.py`
+  - `test/registered/unit/models/test_inkling2_sm90.py`
+  - `test/registered/unit/models/test_inkling_aux_hidden_states.py`
+  - `test/registered/unit/models/test_inkling_linear_loader_layout.py`
+  - `test/registered/unit/models/test_inkling_moe_loader_layout.py`
+  - `test/registered/unit/models/test_inkling_per_expert_sync.py`
+  - `test/registered/unit/multimodal/test_inkling_media_errors.py`
+  - `test/registered/unit/multimodal/rust/inkling/test_bindings.py`
+  - `test/registered/unit/parser/inkling_tmlv0_golden.json`
+  - `test/registered/unit/parser/test_inkling2_renderer.py`
+  - `test/registered/unit/parser/test_inkling_renderer.py`
+
+## llamacpp_pr32694/
+
+- Source: ggml-org/llama.cpp PR #32694 "Inkling 2 Mini" (open; head pcuenca/llama.cpp:inkling2-loop)
+- URL: https://github.com/ggml-org/llama.cpp/pull/32694
+- Repo/commit: `pcuenca/llama.cpp` @ `d7cb78c913ca76062302e8ffb5996ba3a946e41b`
+- Raw base: https://raw.githubusercontent.com/pcuenca/llama.cpp/d7cb78c913ca76062302e8ffb5996ba3a946e41b/<path>
+- Notes: src/models/inkling2.cpp, src/models/inkling2-loop.cpp, conversion/inkling2.py (incl. NVFP4 amax_denominator dequant on convert).
+- Files:
+  - `conversion/inkling2.py`
+  - `src/models/inkling2-loop.cpp`
+  - `src/models/inkling2.cpp`
+
+## llamacpp_pr32695/
+
+- Source: ggml-org/llama.cpp PR #32695 "model: Inkling-2-Mini - looped arch" (open; head danielhanchen/llama.cpp:repeating-layers)
+- URL: https://github.com/ggml-org/llama.cpp/pull/32695
+- Repo/commit: `danielhanchen/llama.cpp` @ `6196d9802e0757a5218f16f91d9a6830793ba800`
+- Raw base: https://raw.githubusercontent.com/danielhanchen/llama.cpp/6196d9802e0757a5218f16f91d9a6830793ba800/<path>
+- Notes: Alternative llama.cpp impl: src/models/inkling2.cpp, conversion/inkling2.py.
+- Files:
+  - `conversion/inkling2.py`
+  - `src/models/inkling2.cpp`
+
+## mlxlm_pr2086/
+
+- Source: ml-explore/mlx-lm PR #2086 "Add Inkling 2 Mini model" (open; head jundot/mlx-lm:inkling2-mini)
+- URL: https://github.com/ml-explore/mlx-lm/pull/2086
+- Repo/commit: `jundot/mlx-lm` @ `0c4c99192230f1943dd468d297f0b8a64ae7b7c2`
+- Raw base: https://raw.githubusercontent.com/jundot/mlx-lm/0c4c99192230f1943dd468d297f0b8a64ae7b7c2/<path>
+- Notes: Compact MLX impl: layers.py, model.py, checkpoint.py (checkpoint dequant), kernels.py, vision.py, processor.py, config.py, test.
+- Files:
+  - `mlx_lm/models/inkling2/__init__.py`
+  - `mlx_lm/models/inkling2/checkpoint.py`
+  - `mlx_lm/models/inkling2/config.py`
+  - `mlx_lm/models/inkling2/kernels.py`
+  - `mlx_lm/models/inkling2/layers.py`
+  - `mlx_lm/models/inkling2/model.py`
+  - `mlx_lm/models/inkling2/processor.py`
+  - `mlx_lm/models/inkling2/vision.py`
+  - `tests/models/test_inkling2.py`
+
+## automodel_pr4861/
+
+- Source: NVIDIA-NeMo/Automodel PR #4861 "feat(inkling2): add Inkling 2 Mini (looped Inkling2) training support" (open; branch huiyingl/feat/inkling2-loop)
+- URL: https://github.com/NVIDIA-NeMo/Automodel/pull/4861
+- Repo/commit: `NVIDIA-NeMo/Automodel` @ `bdf1fff2e8e8ef3e4035308820495e593b7df089`
+- Raw base: https://raw.githubusercontent.com/NVIDIA-NeMo/Automodel/bdf1fff2e8e8ef3e4035308820495e593b7df089/<path>
+- Notes: Training impl + tests/unit_tests/models/inkling2/reference.py (standalone reference), state_dict_adapter.py (dequant), released_config.json.
+- Files:
+  - `nemo_automodel/components/models/inkling2/__init__.py`
+  - `nemo_automodel/components/models/inkling2/attention.py`
+  - `nemo_automodel/components/models/inkling2/config.py`
+  - `nemo_automodel/components/models/inkling2/context_parallel.py`
+  - `nemo_automodel/components/models/inkling2/flex_attention.py`
+  - `nemo_automodel/components/models/inkling2/layers.py`
+  - `nemo_automodel/components/models/inkling2/loss.py`
+  - `nemo_automodel/components/models/inkling2/model.py`
+  - `nemo_automodel/components/models/inkling2/multimodal.py`
+  - `nemo_automodel/components/models/inkling2/parallelization.py`
+  - `nemo_automodel/components/models/inkling2/processing.py`
+  - `nemo_automodel/components/models/inkling2/state_dict_adapter.py`
+  - `nemo_automodel/components/models/inkling2/vision.py`
+  - `tests/unit_tests/models/inkling2/__init__.py`
+  - `tests/unit_tests/models/inkling2/checkpoint_config.json`
+  - `tests/unit_tests/models/inkling2/reference.py`
+  - `tests/unit_tests/models/inkling2/released_config.json`
+  - `tests/unit_tests/models/inkling2/test_checkpoint.py`
+  - `tests/unit_tests/models/inkling2/test_checkpoint_shards.py`
+  - `tests/unit_tests/models/inkling2/test_loop.py`
+  - `tests/unit_tests/models/inkling2/test_multimodal.py`
+  - `tests/unit_tests/models/inkling2/test_multimodal_pipeline.py`
+  - `tests/unit_tests/models/inkling2/test_packing.py`
+  - `tests/unit_tests/models/inkling2/test_pipeline.py`
+  - `tests/unit_tests/models/inkling2/test_precision.py`
+  - `tests/unit_tests/models/inkling2/test_reference.py`
+  - `tests/unit_tests/models/inkling2/test_training.py`
+
+## skyrl_pr2730/
+
+- Source: skyrl-project/SkyRL PR #2730 "[DO NOT MERGE][inkling2] Inkling2 RL training (Small + Mini)" (open; head erictang000/SkyRL:inkling2-support)
+- URL: https://github.com/skyrl-project/SkyRL/pull/2730
+- Repo/commit: `erictang000/SkyRL` @ `faae9039fb0f4b6be27c02dc0045c1de63e3b888`
+- Raw base: https://raw.githubusercontent.com/erictang000/SkyRL/faae9039fb0f4b6be27c02dc0045c1de63e3b888/<path>
+- Notes: patches/megatron/inkling2/reference.py (pure-torch reference), quant.py, modules.py, bridge.py; examples/train/megatron/dequantize_inkling2.py (standalone NVFP4/MXFP8 dequant); patches/vllm/inkling2/{model,ops}.py.
+- Files:
+  - `examples/train/megatron/dequantize_inkling2.py`
+  - `skyrl/backends/skyrl_train/patches/megatron/inkling2/__init__.py`
+  - `skyrl/backends/skyrl_train/patches/megatron/inkling2/bridge.py`
+  - `skyrl/backends/skyrl_train/patches/megatron/inkling2/configuration.py`
+  - `skyrl/backends/skyrl_train/patches/megatron/inkling2/layer_specs.py`
+  - `skyrl/backends/skyrl_train/patches/megatron/inkling2/modules.py`
+  - `skyrl/backends/skyrl_train/patches/megatron/inkling2/provider.py`
+  - `skyrl/backends/skyrl_train/patches/megatron/inkling2/quant.py`
+  - `skyrl/backends/skyrl_train/patches/megatron/inkling2/reference.py`
+  - `skyrl/backends/skyrl_train/patches/vllm/inkling2/__init__.py`
+  - `skyrl/backends/skyrl_train/patches/vllm/inkling2/model.py`
+  - `skyrl/backends/skyrl_train/patches/vllm/inkling2/ops.py`
+
+## hf_Inkling-2-Mini/
+
+- Source: HF model repo thinkingmachines/Inkling-2-Mini (non-weight files)
+- URL: https://huggingface.co/thinkingmachines/Inkling-2-Mini
+- Repo/commit: `thinkingmachines/Inkling-2-Mini (HF)` @ `6e7c8248f75265bdd4fbab5273304243b5d8c2cb`
+- Raw base: https://huggingface.co/thinkingmachines/Inkling-2-Mini/resolve/6e7c8248f75265bdd4fbab5273304243b5d8c2cb/<path>
+- Notes: config.json, hf_quant_config.json (per-tensor formats: NVFP4 amax_denominator + fouroversix_mae activation rule, MXFP8), processor_config.json, tokenizer.json, tiktoken/tokenizer.model, tokenizer_config.json, chat_template.jinja, special_tokens_map.json, generation_config.json, model.safetensors.index.json, README.md.
+- Files:
+  - `README.md`
+  - `chat_template.jinja`
+  - `config.json`
+  - `generation_config.json`
+  - `hf_quant_config.json`
+  - `model.safetensors.index.json`
+  - `processor_config.json`
+  - `special_tokens_map.json`
+  - `tokenizer.json`
+  - `tokenizer_config.json`
+  - `tiktoken/tokenizer.model`
+
+## web/
+
+- `hf_blog_inkling2mini.html` - https://huggingface.co/blog/inkling2mini (raw HTML as served 2026-11-21)
+- `inkling2mini.md` - https://raw.githubusercontent.com/huggingface/blog/main/inkling2mini.md (huggingface/blog @ af9903ce63a870143c21eae710acbd7cc9f8a2c5, last commit touching the file)
+- `tml_news_inkling-2-mini.html` - https://thinkingmachines.ai/news/inkling-2-mini/ (raw HTML; no modeling code, only sample outputs)
+
+## Checked, nothing saved
+
+- vllm main: no inkling2_loop support yet (only PR #69028). Base Inkling2 lives under vllm/models/inkling2/ on main; the PR checkout contains the full directory.
+- github.com/thinking-machines-lab: repos tinker, tinker-cookbook, inkling-verify (eval harness only, no model code), lws, etc. No modeling code repo.
+- PyPI tml-renderers 0.4.2: only compiled abi3 wheels (no sdist / Python source); not downloaded. Equivalent renderer logic is in vllm_pr69028/vllm/renderers/inkling*.py and rust/src/chat/src/renderer/inkling*.
+- Other open PRs not mirrored (available if needed): lightseekorg/tokenspeed#3682 (models/inkling2_loop.py), radixark/miles#4981 (torchtitan), ollama/ollama#19799, Neywa-Labs/mlx-vlm#2778, NVIDIA/TensorRT-LLM#22625-22628 (Inkling-2-Small), smg-project/smg#7585 (closed).
+- mit-han-lab/fouroversix: upstream library for the "fouroversix_mae" NVFP4 scale-selection rule; not mirrored (vLLM's ops/nvfp4.py re-implements it for activations).
