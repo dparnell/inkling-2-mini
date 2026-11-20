@@ -240,9 +240,26 @@ function msgEl(m, i) {
   d.innerHTML = `<div class="who">${who}</div>`;
   if (m.images && m.images.length) { const g = document.createElement("div"); g.className = "imgs"; for (const u of m.images) { const im = document.createElement("img"); im.src = u; g.appendChild(im); } d.appendChild(g); }
   if (m.role === "assistant" && m.reasoning && $("showthink").value !== "hide") {
-    const t = document.createElement("details"); t.className = "think"; t.open = $("showthink").value === "open" || (m.streaming && !m.content);
-    t.innerHTML = `<summary>${m.streaming && !m.content ? "Thinking…" : `Thought for ${m.reasoning.length.toLocaleString()} characters`}</summary><div class="tbody"></div>`;
-    t.querySelector(".tbody").textContent = m.reasoning; d.appendChild(t);
+    // Scroll position and open state live in `thinkState` so they survive re-renders; while
+    // streaming, updateLast() moves the live <details> into the rebuilt message instead.
+    const st = thinkState.get(m) || { follow: true, top: 0, open: null };
+    thinkState.set(m, st);
+    const t = document.createElement("details"); t.className = "think";
+    t.open = st.open ?? ($("showthink").value === "open" || (m.streaming && !m.content));
+    t.innerHTML = `<summary></summary><div class="tbody"></div>`;
+    const th = { t, tb: t.querySelector(".tbody"), st };
+    fillThink(th, m);
+    // only a click is the user's choice (setting `open` in code also fires "toggle")
+    t.querySelector("summary").addEventListener("click", () => { st.open = !t.open; });
+    t.addEventListener("toggle", () => { if (t.open) applyThinkScroll(th); });
+    th.tb.addEventListener("scroll", () => {
+      // ignore the scrolls we set ourselves; any other position is the user's
+      if (th.tb.scrollTop === th.setTo) return;
+      st.follow = th.tb.scrollHeight - th.tb.scrollTop - th.tb.clientHeight < 8;
+      st.top = th.tb.scrollTop;
+    });
+    d._think = th;
+    d.appendChild(t);
   }
   if (m.tool_calls) for (const tc of m.tool_calls) { const t = document.createElement("div"); t.className = "tool"; t.textContent = `→ ${tc.function.name}(${tc.function.arguments})`; d.appendChild(t); }
   const b = document.createElement("div"); b.className = "body" + (m.streaming ? " cursor" : "");
@@ -270,15 +287,54 @@ function render() {
     el.innerHTML = `<div class="empty"><h2>Inkling-2-Mini</h2><div>A looped mixture-of-experts model running locally on your GPU through wgpu.</div></div>`;
     return;
   }
-  cur.messages.forEach((m, i) => el.appendChild(msgEl(m, i)));
+  cur.messages.forEach((m, i) => { const n = msgEl(m, i); el.appendChild(n); if (n._think) applyThinkScroll(n._think); });
   const log = $("log"); log.scrollTop = log.scrollHeight;
 }
 function updateLast() {
-  const el = $("msgs"); const i = cur.messages.length - 1;
+  const el = $("msgs"); const i = cur.messages.length - 1; const m = cur.messages[i];
   const log = $("log"); const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
-  const n = msgEl(cur.messages[i], i);
-  if (el.lastChild && el.lastChild.classList.contains("msg")) el.replaceChild(n, el.lastChild); else el.appendChild(n);
+  const old = el.lastChild && el.lastChild.classList.contains("msg") ? el.lastChild : null;
+  let n = msgEl(m, i);
+  if (old && old._think && n._think) {
+    // keep the live thinking box in the document (detaching an element resets its scroll
+    // position): update it in place and swap the message's other children around it
+    const keep = old._think.t;
+    fillThink(old._think, m);
+    const kids = [...n.childNodes];
+    const at = kids.indexOf(n._think.t);
+    for (const c of [...old.childNodes]) if (c !== keep) old.removeChild(c);
+    for (const c of kids.slice(0, at)) old.insertBefore(c, keep);
+    for (const c of kids.slice(at + 1)) old.appendChild(c);
+    old.className = n.className;
+    n = old;
+  } else if (old) el.replaceChild(n, old); else el.appendChild(n);
+  if (n._think) applyThinkScroll(n._think);
   if (atBottom) log.scrollTop = log.scrollHeight;
+}
+// Scroll state of each message's thinking box, kept across re-renders (not persisted).
+const thinkState = new WeakMap();
+function fillThink(th, m) {
+  const s = m.streaming && !m.content ? "Thinking…" : `Thought for ${m.reasoning.length.toLocaleString()} characters`;
+  const sum = th.t.querySelector("summary");
+  if (sum.textContent !== s) sum.textContent = s;
+  // append only the new text: replacing the node would reset the scroll position
+  if (!th.node) { th.node = document.createTextNode(""); th.tb.appendChild(th.node); }
+  const have = th.node.data;
+  if (m.reasoning.startsWith(have)) { if (m.reasoning.length > have.length) th.node.appendData(m.reasoning.slice(have.length)); }
+  else th.node.data = m.reasoning;
+}
+// Follow the newest text, or hold the position the user scrolled to.
+function applyThinkScroll(th) {
+  const { tb, st } = th;
+  // the user moved it since we last set it, possibly before its scroll event was dispatched
+  if (th.setTo != null && Math.abs(tb.scrollTop - th.setTo) > 1) {
+    st.follow = tb.scrollHeight - tb.scrollTop - tb.clientHeight < 8;
+    st.top = tb.scrollTop;
+  }
+  const want = st.follow ? tb.scrollHeight : st.top;
+  if (Math.abs(tb.scrollTop - want) < 1 && !st.follow) return;
+  tb.scrollTop = want;
+  th.setTo = tb.scrollTop;
 }
 
 // ---------- images
