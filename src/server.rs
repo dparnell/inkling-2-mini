@@ -87,7 +87,14 @@ pub fn run(engine: EngineHandle, opts: ServerOptions) -> anyhow::Result<()> {
         .layer(middleware::from_fn_with_state(state.clone(), auth))
         .layer(DefaultBodyLimit::max(64 * 1024 * 1024))
         .route("/health", get(|| async { "ok" }));
-    let app = if state.opts.ui { api.route("/", get(ui_page)).route("/dashboard", get(dashboard_page)) } else { api };
+    let app = if state.opts.ui {
+        api.route("/", get(ui_page))
+            .route("/dashboard", get(dashboard_page))
+            .route("/favicon.svg", get(favicon))
+            .route("/favicon.ico", get(favicon))
+    } else {
+        api
+    };
     let app = app.layer(middleware::from_fn(track)).layer(tower_http::cors::CorsLayer::permissive()).with_state(state.clone());
 
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
@@ -118,6 +125,11 @@ pub fn run(engine: EngineHandle, opts: ServerOptions) -> anyhow::Result<()> {
 
 const UI_HTML: &str = include_str!("ui/index.html");
 const DASH_HTML: &str = include_str!("ui/dashboard.html");
+const FAVICON_SVG: &str = include_str!("ui/favicon.svg");
+
+async fn favicon() -> Response {
+    ([(header::CONTENT_TYPE, "image/svg+xml"), (header::CACHE_CONTROL, "max-age=86400")], FAVICON_SVG).into_response()
+}
 
 async fn ui_page() -> Response {
     ([(header::CONTENT_TYPE, "text/html; charset=utf-8"), (header::CACHE_CONTROL, "no-cache")], UI_HTML).into_response()
