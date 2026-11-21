@@ -445,6 +445,7 @@ async fn chat_completions(State(st): State<St>, Json(body): Json<Value>) -> Resu
                 Some(GenEvent::Content(s)) => content.push_str(&s),
                 Some(GenEvent::Reasoning(s)) => reasoning.push_str(&s),
                 Some(GenEvent::ToolCall { name, arguments }) => calls.push(tool_call_json(calls.len(), &name, &arguments)),
+                Some(GenEvent::Progress { .. }) => {}
                 Some(GenEvent::Done { finish, usage }) => {
                     let mut message = json!({"role": "assistant", "content": content});
                     if !reasoning.is_empty() {
@@ -472,32 +473,51 @@ async fn chat_completions(State(st): State<St>, Json(body): Json<Value>) -> Resu
     }
 
     let (tx, out) = mpsc::unbounded_channel::<Result<Event, Infallible>>();
-    let chunk = move |delta: Value, finish: Option<&str>| -> Event {
-        Event::default().data(
-            json!({"id": id, "object": "chat.completion.chunk", "created": created, "model": model,
-                   "choices": [{"index": 0, "delta": delta, "finish_reason": finish, "logprobs": null}]})
-            .to_string(),
-        )
+    // vLLM's `stream_options.continuous_usage_stats`: running usage on every chunk
+    let continuous = c.include_usage && body.pointer("/stream_options/continuous_usage_stats").and_then(Value::as_bool).unwrap_or(false);
+    let chunk = move |delta: Value, finish: Option<&str>, usage: Option<&Value>| -> Event {
+        let mut j = json!({"id": id, "object": "chat.completion.chunk", "created": created, "model": model,
+                           "choices": [{"index": 0, "delta": delta, "finish_reason": finish, "logprobs": null}]});
+        if let Some(u) = usage {
+            j["usage"] = u.clone();
+        }
+        Event::default().data(j.to_string())
     };
     tokio::spawn(async move {
         let mut rx = rx;
         let send = |e: Event| tx.send(Ok(e)).is_ok();
-        if !send(chunk(json!({"role": "assistant", "content": ""}), None)) {
+        if !send(chunk(json!({"role": "assistant", "content": ""}), None, None)) {
             return;
         }
         let mut n_calls = 0;
+        let mut live: Option<Value> = None;
         while let Some(ev) = rx.recv().await {
+            let u = if continuous { live.as_ref() } else { None };
             let ok = match ev {
-                GenEvent::Content(s) => send(chunk(json!({"content": s}), None)),
-                GenEvent::Reasoning(s) => send(chunk(json!({"reasoning_content": s}), None)),
+                GenEvent::Content(s) => send(chunk(json!({"content": s}), None, u)),
+                GenEvent::Reasoning(s) => send(chunk(json!({"reasoning_content": s}), None, u)),
                 GenEvent::ToolCall { name, arguments } => {
                     let d = json!({"tool_calls": [tool_call_json(n_calls, &name, &arguments)]});
                     n_calls += 1;
-                    send(chunk(d, None))
+                    send(chunk(d, None, u))
+                }
+                GenEvent::Progress { prompt_tokens, cached_tokens, completion_tokens } => {
+                    let v = json!({"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
+                                   "total_tokens": prompt_tokens + completion_tokens,
+                                   "prompt_tokens_details": {"cached_tokens": cached_tokens}});
+                    // after prefill, report the prompt size before the first token arrives
+                    let first = continuous && live.is_none();
+                    live = Some(v);
+                    if first {
+                        let j = json!({"id": "chatcmpl-usage", "object": "chat.completion.chunk", "created": created, "choices": [], "usage": live});
+                        send(Event::default().data(j.to_string()))
+                    } else {
+                        true
+                    }
                 }
                 GenEvent::Done { finish, usage } => {
                     let fr = if n_calls > 0 { "tool_calls" } else { finish.as_str() };
-                    send(chunk(json!({}), Some(fr)));
+                    send(chunk(json!({}), Some(fr), None));
                     if c.include_usage {
                         let u = json!({"id": "chatcmpl-usage", "object": "chat.completion.chunk", "created": created, "choices": [], "usage": usage_json(&usage)});
                         send(Event::default().data(u.to_string()));
@@ -547,7 +567,7 @@ async fn completions(State(st): State<St>, Json(body): Json<Value>) -> Result<Re
         loop {
             match rx.recv().await {
                 Some(GenEvent::Content(s)) | Some(GenEvent::Reasoning(s)) => text.push_str(&s),
-                Some(GenEvent::ToolCall { .. }) => {}
+                Some(GenEvent::ToolCall { .. }) | Some(GenEvent::Progress { .. }) => {}
                 Some(GenEvent::Done { finish, usage }) => {
                     return Ok(Json(json!({
                         "id": id, "object": "text_completion", "created": created, "model": model,
@@ -575,7 +595,7 @@ async fn completions(State(st): State<St>, Json(body): Json<Value>) -> Result<Re
                         return;
                     }
                 }
-                GenEvent::ToolCall { .. } => {}
+                GenEvent::ToolCall { .. } | GenEvent::Progress { .. } => {}
                 GenEvent::Done { finish, usage } => {
                     let _ = tx.send(Ok(chunk("", Some(finish.as_str()))));
                     if c.include_usage {

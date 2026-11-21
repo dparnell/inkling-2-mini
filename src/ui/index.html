@@ -44,6 +44,13 @@ button { cursor: pointer; }
 #top { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
 #top .title { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #top select { border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; background: var(--panel); }
+#ctx { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; cursor: default; }
+#ctx .bar { width: 72px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+#ctx .fill { height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
+#ctx.warn .fill { background: #e67700; }
+#ctx.full .fill { background: var(--danger); }
+#ctx.full .txt { color: var(--danger); }
+@media (max-width: 560px) { #ctx .bar { width: 40px; } }
 #menu { display: none; }
 #log { flex: 1; overflow: auto; padding: 24px 16px 40px; }
 .wrap { max-width: 820px; margin: 0 auto; }
@@ -122,6 +129,7 @@ dialog input { width: 100%; border: 1px solid var(--line); border-radius: 8px; p
   <div id="top">
     <button class="btn" id="menu">☰</button>
     <div class="title" id="title">New chat</div>
+    <div id="ctx" title="Context used"><div class="bar"><div class="fill"></div></div><span class="txt">–</span></div>
     <select id="effort" title="Reasoning effort">
       <option value="none">Thinking: off</option>
       <option value="minimal">Thinking: minimal</option>
@@ -178,7 +186,30 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("inkling." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("inkling." + k, JSON.stringify(v)); } catch {} },
 };
-let model = "inkling-2-mini", vision = false;
+let model = "inkling-2-mini", vision = false, maxCtx = 0;
+
+// ---------- context meter: tokens the conversation occupies (prompt + reply) vs the window
+// context sizes are powers of two (32768 reads as "32K"); usage counts are shown in thousands
+const fmtK = (n) => n >= 1024 && n % 1024 === 0 ? n / 1024 + "K" : n >= 1000 ? (n / 1000).toFixed(n < 10000 ? 1 : 0) + "K" : String(n);
+function showCtx(used, live) {
+  const el = $("ctx");
+  if (used == null) {
+    el.querySelector(".fill").style.width = "0";
+    el.querySelector(".txt").textContent = maxCtx ? `– / ${fmtK(maxCtx)}` : "–";
+    el.classList.remove("warn", "full");
+    el.title = "Context use is shown after the next reply in this conversation.";
+    return;
+  }
+  const pct = maxCtx ? Math.min(100, (100 * used) / maxCtx) : 0;
+  el.querySelector(".fill").style.width = pct + "%";
+  el.querySelector(".txt").textContent = maxCtx ? `${fmtK(used)} / ${fmtK(maxCtx)}` : (used ? fmtK(used) : "–");
+  el.classList.toggle("warn", pct >= 75 && pct < 92);
+  el.classList.toggle("full", pct >= 92);
+  el.title = maxCtx
+    ? `Context: ${used.toLocaleString()} of ${maxCtx.toLocaleString()} tokens (${pct.toFixed(1)}%)${live ? ", updating" : " after the last reply"}. ` +
+      `${(maxCtx - used).toLocaleString()} tokens left for the next message and reply.`
+    : "Context used";
+}
 let convs = store.get("convs", []);
 let cur = null, pending = [], busy = null;
 
@@ -240,6 +271,7 @@ async function loadModels() {
     if (r.status === 401) { $("modelinfo").textContent = "API key required (set it in ⚙ settings)"; return; }
     const m = (await r.json()).data[0]; model = m.id; vision = m.modalities.input.includes("image");
     $("modelinfo").textContent = `${m.id} · ${m.max_model_len.toLocaleString()} ctx${vision ? " · vision" : ""}`;
+    maxCtx = m.max_model_len; if (!busy) showCtx(!cur || !cur.messages.length ? 0 : cur.ctxUsed ?? null);
     $("attach").style.display = vision ? "" : "none";
     $("hint").textContent = vision ? "Paste or drop images to attach them." : "This server was started without the vision tower.";
   } catch { $("modelinfo").textContent = "server unreachable"; }
@@ -345,6 +377,8 @@ function msgEl(m, i) {
 function render() {
   const el = $("msgs"); el.innerHTML = "";
   $("title").textContent = cur ? cur.title : "New chat";
+  // unknown (null) for conversations whose last reply predates the meter
+  if (!busy) showCtx(!cur || !cur.messages.length ? 0 : cur.ctxUsed ?? null);
   if (!cur || !cur.messages.length) {
     el.innerHTML = `<div class="empty"><h2>Inkling-2-Mini</h2><div>A looped mixture-of-experts model running locally on your GPU through wgpu.</div></div>`;
     return;
@@ -465,7 +499,8 @@ async function complete() {
   const msg = { role: "assistant", content: "", reasoning: "", streaming: true };
   const ctl = new AbortController(); busy = ctl; $("send").textContent = "Stop"; $("send").classList.add("danger");
   cur.messages.push(msg); render();
-  const body = { model, messages: apiMessages().slice(0, -1), stream: true, stream_options: { include_usage: true },
+  const conv = cur;
+  const body = { model, messages: apiMessages().slice(0, -1), stream: true, stream_options: { include_usage: true, continuous_usage_stats: true },
     temperature: +$("temp").value, top_p: +$("topp").value, max_tokens: +$("maxtok").value, reasoning_effort: $("effort").value };
   try { const t = JSON.parse($("tools").value || "null"); if (Array.isArray(t) && t.length) body.tools = t; } catch { }
   const t0 = performance.now(); let tFirst = null, usage = null, frame = 0;
@@ -484,7 +519,7 @@ async function complete() {
           const data = line.slice(5).trim(); if (data === "[DONE]") continue;
           const j = JSON.parse(data);
           if (j.error) throw new Error(j.error.message);
-          if (j.usage) usage = j.usage;
+          if (j.usage) { usage = j.usage; showCtx(usage.total_tokens, true); }
           const d = j.choices?.[0]?.delta; if (!d) continue;
           if ((d.content || d.reasoning_content) && tFirst == null) tFirst = performance.now();
           if (d.reasoning_content) msg.reasoning += d.reasoning_content;
@@ -504,6 +539,8 @@ async function complete() {
     msg.stats = `${gen} tokens · ${(gen / Math.max(dt - ttft, 1e-3)).toFixed(1)} tok/s · first token ${ttft.toFixed(2)} s · prompt ${usage.prompt_tokens} (${usage.prompt_tokens_details?.cached_tokens || 0} cached)`;
   }
   if (!msg.reasoning) delete msg.reasoning;
+  // the last usage seen is what the conversation now occupies (also after a stop)
+  if (usage) conv.ctxUsed = usage.total_tokens;
   saveConvs(); render();
 }
 

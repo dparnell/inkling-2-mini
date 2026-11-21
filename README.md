@@ -90,7 +90,10 @@ the backend.
 - **Images:** `image_url` parts as `data:` URLs (or http(s) with `--allow-remote-media`).
 - **Sampling:** `temperature`, `top_p`, `top_k`, `min_p`, penalties, `logit_bias`, `seed`, `stop`,
   `max_tokens` / `max_completion_tokens`.
-- **Streaming:** `stream` and `stream_options.include_usage`.
+- **Streaming:** `stream` and `stream_options.include_usage`. Add
+  `stream_options.continuous_usage_stats: true` (as in vLLM) to get running `usage` on every chunk,
+  starting with a usage-only chunk once the prompt is prefilled. The web UI uses it for its
+  context meter.
 
 `POST /v1/completions` continues raw text (no chat template). `GET /v1/models`, `GET /health` and
 `GET /api/stats` (dashboard JSON) are also available.

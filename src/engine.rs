@@ -49,6 +49,8 @@ pub enum GenEvent {
     Reasoning(String),
     Content(String),
     ToolCall { name: String, arguments: String },
+    /// Running token counts: once after prefill, then after every generated token.
+    Progress { prompt_tokens: usize, cached_tokens: usize, completion_tokens: usize },
     Done { finish: FinishReason, usage: Usage },
     Error(String),
 }
@@ -273,6 +275,11 @@ impl Engine {
         let mut finish = FinishReason::Length;
         let mut raw_text_ids: Vec<u32> = Vec::new();
         let mut raw_emitted = 0usize;
+        let progress = |n: usize| GenEvent::Progress { prompt_tokens: req.prompt.len(), cached_tokens: cached, completion_tokens: n };
+        if req.events.send(progress(0)).is_err() {
+            metrics().cancelled(req.id);
+            return Ok(());
+        }
         loop {
             for &s in &suppress {
                 if let Some(l) = logits.get_mut(s as usize) {
@@ -284,6 +291,7 @@ impl Engine {
             n += 1;
             usage.completion_tokens = n;
             metrics().slot(req.id, false);
+            let _ = req.events.send(progress(n));
 
             let mut stop_now = false;
             if self.tp.eos.contains(&id) {

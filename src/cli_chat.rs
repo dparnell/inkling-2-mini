@@ -63,6 +63,7 @@ pub fn repl(engine: engine::EngineHandle, tp: Arc<text::TextProcessor>, effort: 
                     content.push_str(&s);
                 }
                 engine::GenEvent::ToolCall { name, arguments } => println!("[tool call {name}({arguments})]"),
+                engine::GenEvent::Progress { .. } => {}
                 engine::GenEvent::Done { usage, finish } => {
                     if in_reasoning {
                         print!("\x1b[0m");
