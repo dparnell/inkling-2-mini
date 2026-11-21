@@ -93,6 +93,12 @@ details.think .tbody { white-space: pre-wrap; margin-top: 6px; max-height: 360px
 #settings input[type=number], #settings textarea, #settings select { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--bg); }
 #settings textarea { min-height: 90px; resize: vertical; }
 #settings h3 { margin: 0; display: flex; justify-content: space-between; align-items: center; }
+#settings input[type=password] { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--bg); }
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 18px; width: min(380px, 92vw); }
+dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+dialog h3 { margin: 0 0 6px; }
+dialog input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); margin: 10px 0 14px; }
+.dlgbtns { display: flex; justify-content: flex-end; gap: 8px; }
 #drop { position: fixed; inset: 0; background: color-mix(in srgb, var(--accent) 18%, transparent); border: 3px dashed var(--accent); display: none; align-items: center; justify-content: center; font-size: 22px; z-index: 20; pointer-events: none; }
 .empty { text-align: center; color: var(--muted); margin-top: 18vh; }
 .empty h2 { color: var(--ink); font-weight: 600; margin-bottom: 6px; }
@@ -152,8 +158,18 @@ details.think .tbody { white-space: pre-wrap; margin-top: 6px; max-height: 360px
   <textarea id="tools" placeholder='[{"type":"function","function":{"name":"get_weather","parameters":{"type":"object","properties":{"city":{"type":"string"}}}}}]'></textarea>
   <label for="theme">Theme</label>
   <select id="theme"><option value="">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
-  <p class="hint">Settings are stored in this browser.</p>
+  <label for="apikey">API key (servers started with --api-key)</label>
+  <input id="apikey" type="password" autocomplete="off" placeholder="not set">
+  <p class="hint">Settings and the API key are stored in this browser.</p>
 </div>
+<dialog id="keydlg">
+  <form method="dialog">
+    <h3>API key required</h3>
+    <p class="hint" id="keymsg">This server requires an API key (it was started with <code>--api-key</code>).</p>
+    <input id="keyinput" type="password" autocomplete="off" placeholder="API key" required>
+    <div class="dlgbtns"><button class="btn" type="button" id="keycancel">Cancel</button><button class="btn primary" value="ok">Save</button></div>
+  </form>
+</dialog>
 <input type="file" id="file" accept="image/*" multiple hidden>
 <div id="drop">Drop images to attach</div>
 <script>
@@ -178,12 +194,57 @@ $("gear").onclick = () => $("settings").classList.toggle("open");
 $("close").onclick = () => $("settings").classList.remove("open");
 $("menu").onclick = () => $("side").classList.toggle("open");
 
+// ---------- API key: sent as a bearer token; asked for when the server answers 401
+const KEY = "inkling.apikey";
+const getKey = () => { try { return localStorage.getItem(KEY) || ""; } catch { return ""; } };
+const setKey = (k) => { try { k ? localStorage.setItem(KEY, k) : localStorage.removeItem(KEY); } catch {} $("apikey").value = k; };
+$("apikey").value = getKey();
+$("apikey").addEventListener("change", () => { setKey($("apikey").value.trim()); loadModels(); });
+let keyAsk = null;
+function askKey(rejected) {
+  if (keyAsk) return keyAsk; // one dialog for concurrent requests
+  const dlg = $("keydlg");
+  $("keymsg").textContent = rejected ? "The saved API key was rejected. Enter the key this server was started with." : "This server requires an API key (it was started with --api-key).";
+  $("keyinput").value = "";
+  keyAsk = new Promise((resolve) => { keyDone = resolve; dlg.showModal(); $("keyinput").focus(); });
+  return keyAsk;
+}
+// Settle from the synchronous events (submit / Cancel / Escape): the dialog "close" event is
+// queued behind a rendering update and may not arrive while the page is in the background.
+let keyDone = null;
+function finishKey(ok) {
+  const dlg = $("keydlg");
+  const k = $("keyinput").value.trim();
+  if (dlg.open) dlg.close();
+  const done = keyDone; keyDone = null; keyAsk = null;
+  if (ok && k) setKey(k);
+  if (done) done(!!(ok && k));
+}
+$("keydlg").querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finishKey(true); });
+$("keydlg").addEventListener("cancel", (e) => { e.preventDefault(); finishKey(false); });
+$("keycancel").onclick = () => finishKey(false);
+async function apiFetch(url, opts = {}) {
+  for (;;) {
+    const key = getKey();
+    const headers = { ...(opts.headers || {}) };
+    if (key) headers.authorization = "Bearer " + key;
+    const r = await fetch(url, { ...opts, headers });
+    if (r.status !== 401 || !(await askKey(!!key))) return r;
+  }
+}
+
 // ---------- model info
-fetch("/v1/models").then(r => r.json()).then(j => {
-  const m = j.data[0]; model = m.id; vision = m.modalities.input.includes("image");
-  $("modelinfo").textContent = `${m.id} · ${m.max_model_len.toLocaleString()} ctx${vision ? " · vision" : ""}`;
-  if (!vision) { $("attach").style.display = "none"; $("hint").textContent = "This server was started without the vision tower."; }
-}).catch(() => { $("modelinfo").textContent = "server unreachable"; });
+async function loadModels() {
+  try {
+    const r = await apiFetch("/v1/models");
+    if (r.status === 401) { $("modelinfo").textContent = "API key required (set it in ⚙ settings)"; return; }
+    const m = (await r.json()).data[0]; model = m.id; vision = m.modalities.input.includes("image");
+    $("modelinfo").textContent = `${m.id} · ${m.max_model_len.toLocaleString()} ctx${vision ? " · vision" : ""}`;
+    $("attach").style.display = vision ? "" : "none";
+    $("hint").textContent = vision ? "Paste or drop images to attach them." : "This server was started without the vision tower.";
+  } catch { $("modelinfo").textContent = "server unreachable"; }
+}
+loadModels();
 
 // ---------- markdown (small, safe: escapes first)
 function esc(s) { return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
@@ -409,7 +470,7 @@ async function complete() {
   try { const t = JSON.parse($("tools").value || "null"); if (Array.isArray(t) && t.length) body.tools = t; } catch { }
   const t0 = performance.now(); let tFirst = null, usage = null, frame = 0;
   try {
-    const r = await fetch("/v1/chat/completions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: ctl.signal });
+    const r = await apiFetch("/v1/chat/completions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: ctl.signal });
     if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error?.message || r.statusText); }
     const rd = r.body.getReader(); const dec = new TextDecoder(); let buf = "";
     for (;;) {

@@ -45,6 +45,13 @@ td.n, th.n { text-align: right; }
 .st-done { color: var(--ok); }
 #logs { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: 12px/1.5 ui-monospace, Consolas, monospace; max-height: 280px; overflow: auto; white-space: pre-wrap; color: var(--muted); }
 .off { color: var(--bad); }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 5px 10px; font: inherit; cursor: pointer; }
+.btn.primary { background: var(--s1); color: #fff; border-color: var(--s1); }
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 18px; width: min(380px, 92vw); }
+dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+dialog h3 { margin: 0 0 6px; }
+dialog input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); color: var(--ink); margin: 10px 0 14px; font: inherit; }
+.dlgbtns { display: flex; justify-content: flex-end; gap: 8px; }
 </style>
 </head>
 <body>
@@ -53,6 +60,14 @@ td.n, th.n { text-align: right; }
   <span class="meta" id="meta">connecting…</span>
   <a href="/">← Chat</a>
 </header>
+<dialog id="keydlg">
+  <form method="dialog">
+    <h3>API key required</h3>
+    <p class="meta" id="keymsg"></p>
+    <input id="keyinput" type="password" autocomplete="off" placeholder="API key" required>
+    <div class="dlgbtns"><button class="btn" type="button" id="keycancel">Cancel</button><button class="btn primary" value="ok">Save</button></div>
+  </form>
+</dialog>
 <main>
   <div class="kpis" id="kpis"></div>
   <div class="charts" id="charts"></div>
@@ -129,10 +144,46 @@ function reqs(j) {
   }).join("") || `<tr><td colspan="12" style="color:var(--muted)">No requests yet.</td></tr>`;
 }
 
+// ---------- API key (shared with the chat page through localStorage)
+const KEY = "inkling.apikey";
+const getKey = () => { try { return localStorage.getItem(KEY) || ""; } catch { return ""; } };
+let needKey = false, asking = false;
+function askKey() {
+  if (asking) return;
+  asking = true;
+  const dlg = $("keydlg");
+  $("keymsg").textContent = getKey() ? "The saved API key was rejected. Enter the key this server was started with." : "This server requires an API key (it was started with --api-key).";
+  $("keyinput").value = "";
+  dlg.showModal();
+  $("keyinput").focus();
+}
+// Settle from the synchronous events (submit / Cancel / Escape): the dialog "close" event is
+// queued behind a rendering update and may not arrive while the page is in the background.
+function finishKey(ok) {
+  const dlg = $("keydlg");
+  const k = $("keyinput").value.trim();
+  if (dlg.open) dlg.close();
+  asking = false;
+  if (ok && k) { try { localStorage.setItem(KEY, k); } catch {} needKey = false; tick(); }
+}
+$("keydlg").querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); finishKey(true); });
+$("keydlg").addEventListener("cancel", (e) => { e.preventDefault(); finishKey(false); });
+$("keycancel").onclick = () => finishKey(false);
+
 let failures = 0;
 async function tick() {
+  if (needKey) return;
   try {
-    const j = await (await fetch("/api/stats")).json();
+    const key = getKey();
+    const r = await fetch("/api/stats", { headers: key ? { authorization: "Bearer " + key } : {} });
+    if (r.status === 401) {
+      needKey = true;
+      $("meta").innerHTML = `<span class="off">API key required</span> <button class="btn" id="keybtn">Enter API key</button>`;
+      $("keybtn").onclick = askKey;
+      askKey();
+      return;
+    }
+    const j = await r.json();
     failures = 0;
     const i = j.info, up = Math.floor(j.uptime_s);
     $("meta").innerHTML = `${i.model} · ${i.gpu}${i.gpu_source ? ` (${i.gpu_source})` : ""} · ${i.status} · up ${Math.floor(up / 3600)}h ${Math.floor(up / 60) % 60}m ${up % 60}s`;
